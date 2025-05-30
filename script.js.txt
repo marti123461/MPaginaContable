@@ -1,0 +1,178 @@
+// script.js - Sistema de Contabilidad Básico
+
+const { useState } = React;
+
+function AccountingSystem({ onClose }) {
+  const [transactions, setTransactions] = useState([]);
+  const [company, setCompany] = useState("");
+  const [transactionText, setTransactionText] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const extractAmount = (text) => {
+    const match = text.match(/\\$\\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/);
+    return match ? parseFloat(match[1].replace(/,/g, "")) : 0;
+  };
+
+  const processTransactions = () => {
+    if (!company.trim() || !transactionText.trim()) {
+      alert("Por favor completa todos los campos");
+      return;
+    }
+    setIsProcessing(true);
+    setTimeout(() => {
+      const lines = transactionText.split("\n").filter((line) => line.trim());
+      const newTransactions = lines.map((line, index) => ({
+        id: `${Date.now()}-${index}`,
+        description: line,
+        amount: extractAmount(line) || 0,
+        date: new Date().toISOString().split("T")[0],
+      }));
+      setTransactions(newTransactions);
+      setIsProcessing(false);
+      alert(`Se procesaron ${newTransactions.length} transacciones`);
+    }, 1000);
+  };
+
+  const removeTransaction = (id) => {
+    setTransactions(transactions.filter((t) => t.id !== id));
+  };
+
+  const generateJournalEntries = () => {
+    const entries = [];
+    transactions.forEach((t) => {
+      if (t.amount > 0) {
+        entries.push(
+          {
+            date: t.date,
+            account: "Cuenta por Cobrar",
+            debit: t.amount,
+            credit: 0,
+          },
+          {
+            date: t.date,
+            account: "Venta de Mercancía",
+            debit: 0,
+            credit: t.amount,
+          }
+        );
+      }
+    });
+    return entries;
+  };
+
+  const journalEntries = generateJournalEntries();
+
+  const exportToCSV = () => {
+    let csv = "Fecha,Cuenta,Débito,Crédito\n";
+    journalEntries.forEach((entry) => {
+      csv += `${entry.date},${entry.account},${entry.debit},${entry.credit}\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "diario-general.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h1>Sistema Contable</h1>
+
+      <label>
+        Empresa:
+        <input
+          type="text"
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
+        />
+      </label>
+
+      <label>
+        Transacciones:
+        <textarea
+          rows="10"
+          value={transactionText}
+          onChange={(e) => setTransactionText(e.target.value)}
+          style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
+        />
+      </label>
+
+      <button
+        onClick={processTransactions}
+        disabled={isProcessing}
+        style={{
+          backgroundColor: "#FFA500",
+          color: "white",
+          padding: "10px",
+          border: "none",
+          cursor: isProcessing ? "not-allowed" : "pointer",
+          width: "100%",
+        }}
+      >
+        {isProcessing ? "Procesando..." : "Generar Asientos"}
+      </button>
+
+      <table style={{ marginTop: "20px", width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ backgroundColor: "#f2f2f2" }}>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Fecha</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Cuenta</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Débito</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Crédito</th>
+          </tr>
+        </thead>
+        <tbody>
+          {journalEntries.map((entry, index) => (
+            <tr key={index}>
+              <td style={{ border: "1px solid #ccc", padding: "6px" }}>{entry.date}</td>
+              <td style={{ border: "1px solid #ccc", padding: "6px" }}>{entry.account}</td>
+              <td style={{ border: "1px solid #ccc", padding: "6px", textAlign: "right" }}>
+                {entry.debit > 0 ? `$${entry.debit.toFixed(2)}` : ""}
+              </td>
+              <td style={{ border: "1px solid #ccc", padding: "6px", textAlign: "right" }}>
+                {entry.credit > 0 ? `$${entry.credit.toFixed(2)}` : ""}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {journalEntries.length > 0 && (
+        <button
+          onClick={exportToCSV}
+          style={{
+            backgroundColor: "#4CAF50",
+            color: "white",
+            padding: "10px",
+            border: "none",
+            cursor: "pointer",
+            marginTop: "20px",
+            width: "100%",
+          }}
+        >
+          Descargar CSV
+        </button>
+      )}
+
+      <h3 style={{ marginTop: "20px" }}>Transacciones Ingresadas</h3>
+      <ul>
+        {transactions.map((t) => (
+          <li key={t.id}>
+            {t.description} - ${t.amount.toFixed(2)}
+            <button
+              onClick={() => removeTransaction(t.id)}
+              style={{ marginLeft: "10px", color: "red", fontSize: "12px" }}
+            >
+              Eliminar
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<AccountingSystem onClose={() => {}} />);
